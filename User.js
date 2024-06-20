@@ -87,7 +87,8 @@ const userSchema=new mongoose.Schema({
     },
     notifications:{
         type:Array,
-        default:[]
+        default:[],
+        maxLength:80
     },
     newnotification:{
         type:Boolean,
