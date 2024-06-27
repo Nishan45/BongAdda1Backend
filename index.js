@@ -1,22 +1,26 @@
 const mongoToConnect=require('./db')
 mongoToConnect()
 
+const compression=require('compression')
 const express = require('express')
 const app = express()
 const port = 3000
 const Cors=require('cors')
-const User = require('./User');
-
-const { body, validationResult } = require('express-validator');
-
-const  PostImage  = require('./PostImg')
-const Other=require('./Other')
-
 
 
 app.use(Cors())
 app.use(express.json());
+app.use(compression({level:6,threshold:0}))
+  
 
+
+const { body, validationResult } = require('express-validator');
+
+const User = require('./User');
+const  PostImage  = require('./PostImg')
+const Other=require('./Other')
+
+const notification_limit=50
 
 app.post('/',[
   body('name','enter a valid name').isLength({min:2}),
@@ -51,7 +55,7 @@ app.post('/',[
 app.post('/login',async(req,res)=>{
 
   const{email,password}=req.body;
-  const data=await User.findOne({email:email,password:password})
+  const data=await User.findOne({email:email,password:password},{notifications:false})
   const id=await User.findOne({email:email})
   
   if(data){
@@ -130,36 +134,178 @@ app.post('/upload_other',async(req,res)=>{
 })
 
 app.post('/get_posts',async (req,res)=>{
-  const Data=await PostImage.find({}).sort({ _id: -1 });
+  const skip=req.body.skip;
+  const time=req.body.time;
+  let limit=req.body.limit;
+  if(!limit){
+    limit=6;
+  }
+  let Data=await PostImage.find({createdAt:{$lte:time}}).sort({ _id: -1 }).skip(skip).limit(limit).exec();
+  const email=req.body.email
+  let id=''
+  if(email){
+  for(let i=0;i<email.length;i++){
+    if(email[i]=='.'){
+      break;
+    }
+    id+=email[i];
+  }
+
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }
+}
+  
   res.json(Data);
+  Data=[]
 })
 app.post('/get_trending_posts',async (req,res)=>{
-  const Data=await PostImage.find({}).sort({shareCount:-1,likeCount:-1,commentsCount:-1});
+  const skip=req.body.skip;
+  const time=req.body.time;
+  let limit=req.body.limit;
+  if(!limit){
+    limit=6;
+  }
+  let Data=await PostImage.find({updatedAt:{$lte:time}}).sort({shareCount:-1,likeCount:-1,commentsCount:-1,_id:-1,updatedAt:-1,createdAt:-1}).skip(skip).limit(limit).exec();
+  const email=req.body.email
+  if(email){
+  let id=''
+  for(let i=0;i<email.length;i++){
+    if(email[i]=='.'){
+      break;
+    }
+    id+=email[i];
+  }
+
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }}
+  
   res.json(Data);
+  Data=[]
 })
 app.post('/get_user_images',async (req,res)=>{
-  const email=req.body.email
-  const Data=await PostImage.find({user_id:email}).sort({ _id: -1 })
-  res.json(Data);
+  const {email,user_email}=req.body
+  let Data=await PostImage.find({user_id:email}).sort({ _id: -1 })
+  if(user_email){
+  let id=''
+  for(let i=0;i<user_email.length;i++){
+    if(user_email[i]=='.'){
+      break;
+    }
+    id+=user_email[i];
+  }
 
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }}
+  
+  res.json(Data);
+  Data=[]
 })
 app.post('/get_stories',async (req,res)=>{
-  const category=req.body.category;
-  const Data=await Other.find({category:category}).sort({ _id: -1 })
-  res.json(Data);
+  const {category,skip,time}=req.body;
+  let limit=req.body.limit;
+  if(!limit){
+    limit=6;
+  }
   
+  let Data=await Other.find({category:category,createdAt:{$lte:time}}).sort({ _id: -1 }).skip(skip).limit(limit).exec()
+  const email=req.body.email
+  if(email){
+  let id=''
+  for(let i=0;i<email.length;i++){
+    if(email[i]=='.'){
+      break;
+    }
+    id+=email[i];
+  }
+
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }}
+  
+  res.json(Data);
+  Data=[]
 })
 app.post('/get_trending_stories',async (req,res)=>{
-  const category=req.body.category;
-  const Data=await Other.find({category:category}).sort({shareCount:-1,likeCount:-1,commentsCount:-1})
+  const {category,skip,time}=req.body;
+  let limit=req.body.limit;
+  if(!limit){
+    limit=6;
+  }
+  let Data=await Other.find({category:category,updatedAt:{$lte:time}}).sort({shareCount:-1,likeCount:-1,commentsCount:-1,_id:-1,updatedAt:-1,createdAt:-1}).skip(skip).limit(limit).exec()
+  const email=req.body.email
+  if(email){
+  let id=''
+  for(let i=0;i<email.length;i++){
+    if(email[i]=='.'){
+      break;
+    }
+    id+=email[i];
+  }
+
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }
+}
   res.json(Data);
-  
+  Data=[]
 })
 app.post('/get_user_stories',async (req,res)=>{
-  const {category,email}=req.body;
-  const Data=await Other.find({category:category,user_id:email}).sort({ _id: -1 })
-  res.json(Data);
+  const {category,email,user_email}=req.body;
+  let Data=await Other.find({category:category,user_id:email}).sort({ _id: -1 })
+  if(user_email){
+  let id=''
+  for(let i=0;i<user_email.length;i++){
+    if(user_email[i]=='.'){
+      break;
+    }
+    id+=user_email[i];
+  }
+
+  for(let i=0;i<Data.length;i++){
+    if(Data[i].likes.get(id)){
+      
+      Data[i]._doc['likedby']=true
+    }
+    else{
+      Data[i]._doc['likedby']=false
+    }
+  }}
   
+  res.json(Data);
+  Data=[]
 })
 app.post('/like',async (req,res)=>{
   const{email,postid,checking}=req.body;
@@ -192,6 +338,9 @@ app.post('/like',async (req,res)=>{
     if(user.email!=from.email){
     user.newnotification=true;
     user.notifications.push({name:from.name,text:"আপনার পোস্ট Like করেছেন",profimg:from.profImg,category:"image",postid:post._id,from:from.email,time:new Date()})
+    }
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
     }
     res.json({yes:true,number:post.likes.size})
   }
@@ -231,13 +380,15 @@ app.post('/other_like',async (req,res)=>{
     if(user.email!=from.email){
     user.newnotification=true;
     user.notifications.push({name:from.name,text:"আপনার পোস্ট Like করেছেন",profimg:from.profImg,category:post.category,from:from.email,postid:post._id,time:new Date()})
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
     }
     res.json({yes:true,number:post.likes.size})
-  }
+  }}
   post.likeCount=post.likes.size;
   user.save();
-  post.save()
-}
+  post.save();
+  }
 })
 
 app.post('/profile_follow',async (req,res)=>{
@@ -281,7 +432,9 @@ app.post('/profile_follow',async (req,res)=>{
     follower.following.push(user.email)
     user.newnotification=true;
     user.notifications.push({name:follower.name,text:" আপনাকে অনুসরণ করছেন",profimg:follower.profImg,category:"follow",from:follower.email,time:new Date()})
-    
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
+    }
     res.json({yes:true})
   }
   user.save();
@@ -331,7 +484,9 @@ app.post('/follow',async (req,res)=>{
     follower.following.push(user.email)
     user.newnotification=true;
     user.notifications.push({name:follower.name,text:" আপনাকে অনুসরণ করছেন",profimg:follower.profImg,category:"follow",from:follower.email,time:new Date()})
-    
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
+    }
     res.json({yes:true})
   }
   user.save();
@@ -381,7 +536,9 @@ app.post('/other_follow',async (req,res)=>{
     follower.following.push(user.email)
     user.newnotification=true;
     user.notifications.push({name:follower.name,text:" আপনাকে অনুসরণ করছেন",profimg:follower.profImg,category:"follow",from:follower.email,time:new Date()})
-    
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
+    }
     res.json({yes:true})
   }
   user.save();
@@ -430,6 +587,9 @@ app.post('/get_follow',async (req,res)=>{
     follower.following.push(user.email)
     user.newnotification=true;
     user.notifications.push({name:follower.name,text:" আপনাকে অনুসরণ করছেন",profimg:follower.profImg,category:"follow",from:follower.email,time:new Date()})
+    if(user.notifications.length>notification_limit){
+      user.notifications.shift(0);
+    }
     res.json({yes:true})
   }
   user.save();
@@ -517,7 +677,7 @@ app.post('/comment',async (req,res)=>{
   const post=await PostImage.findById(postid)
   const user=await User.findOne({email:userid})
   const time=new Date()
-  post.comments.push({profimg:userid,name:user.name,text:text,time:time,email:user.email})
+  post.comments.push({profimg:user.profImg,name:user.name,text:text,time:time,email:user.email})
   post.commentsCount=post.comments.length;
   post.save()
   res.json("ok")
@@ -528,7 +688,7 @@ app.post('/other_comment',async (req,res)=>{
   const post=await Other.findById(postid)
   const user=await User.findOne({email:userid})
   const time=new Date()
-  post.comments.push({profimg:userid,name:user.name,text:text,time:time,email:user.email})
+  post.comments.push({profimg:user.profImg,name:user.name,text:text,time:time,email:user.email})
   post.commentsCount=post.comments.length;
   post.save()
   res.json("ok")
@@ -550,10 +710,10 @@ app.post('/get_other_comments',async (req,res)=>{
 })
 
 app.post('/get_users',async (req,res)=>{
-  const email=req.body.user;
   
-  const users=await User.find({email:{$ne:email}})
-
+  const {email,query,skip}=req.body
+  const users=await User.find({email:{$ne:email},name:{"$regex":'^'+query, "$options": 'i'}},{password:false,discription:false,notifications:false,following:false,isfollowing:false,newnotification:false,createdAt:false,updatedAt:false,about:false,backgroundImg:false,followers:false}).sort({createdAt:1}).skip(skip).limit(20).exec()
+  
   res.json(users)
   
 })
@@ -579,6 +739,7 @@ app.post('/get_users_share',async (req,res)=>{
     }
   }
   res.json(data) 
+  data=[]
 }
   else{
    
@@ -600,6 +761,7 @@ app.post('/get_users_share',async (req,res)=>{
       }
     }
     res.json(data) 
+    data=[]
   
   }
 })
@@ -617,7 +779,8 @@ app.post('/get_posts_count',async (req,res)=>{
   const email=req.body.email
   const posts=await PostImage.find({user_id:email})
   const others=await Other.find({user_id:email})
-  res.json(posts.length+others.length);
+  const user=await User.findOne({email:email})
+  res.json({post:posts.length+others.length,follower:user.followers.length,following:user.following.length});
 })
 
 app.post('/get_user_info',async (req,res)=>{
@@ -640,7 +803,7 @@ app.post('/edit_profile',async (req,res)=>{
 })
 
 app.post('/newnotification',async (req,res)=>{
-  const email=req.body.email;
+  const email=req.body.email
   const user=await User.findOne({email:email})
   res.json(user.newnotification)
 })
@@ -655,10 +818,15 @@ app.post('/notify',async (req,res)=>{
 
 app.post('/get_notification',async (req,res)=>{
  
-  const email=req.body.email;
+  const {email,skip,limit,time}=req.body;
   const user=await User.findOne({email:email})
-  const data=user.notifications.reverse();
+  let data=user.notifications.filter(function(x){
+    
+    return JSON.stringify(x.time)<=time;
+  }).reverse().slice(skip,skip+limit)
+  
   res.json(data)
+  data=[]
 })
 
 app.post('/delete',async (req,res)=>{
@@ -737,6 +905,13 @@ app.post('/valid',async (req,res)=>{
   
 })
 
+
+app.get('/test',async (req,res)=>{
+  const skip=0;
+  const time=new Date();
+  let Data=await PostImage.find({createdAt:{$lte:time}}).sort({ _id: -1 }).skip(skip).limit(4).exec();
+  res.send(Data);
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
