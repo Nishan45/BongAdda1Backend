@@ -813,7 +813,7 @@ app.post('/notify',async (req,res)=>{
   const user=await User.findOne({email:email});
   user.newnotification=val;
   user.save();
- 
+  res.sendStatus(200);
 })
 
 app.post('/get_notification',async (req,res)=>{
