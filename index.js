@@ -785,7 +785,7 @@ app.post('/get_posts_count',async (req,res)=>{
 
 app.post('/get_user_info',async (req,res)=>{
   const email=req.body.email
-  const user=await User.findOne({email:email})
+  const user=await User.findOne({email:email},{password:false,notifications:false,newnotification:false,createdAt:false,updatedAt:false})
   res.json(user);
 })
 
